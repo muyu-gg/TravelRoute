@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}规划结果 - 觉途行{% endblock %}
+{% block content %}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="{% url 'planner:planner' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回规划
+    </a>
+
+    <!-- ========== 顶部标题 ========== -->
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold text-brand-600 mb-1">路线规划结果</p>
+                <h1 class="font-display text-3xl sm:text-4xl font-black text-slate-800">
+                    {{ plan.city }} 路线规划
+                </h1>
+                <div class="flex flex-wrap gap-3 mt-3 text-sm text-slate-500">
+                    <span class="px-3 py-1 rounded-lg border-2 border-slate-200 bg-slate-50 font-semibold
+                                 {% if plan.status == 'success' %}border-emerald-300 text-emerald-700{% elif plan.status == 'failed' %}border-red-300 text-red-700{% else %}border-amber-300 text-amber-700{% endif %}">
+                        {{ plan.get_status_display }}
+                    </span>
+                    <span class="px-3 py-1 rounded-lg border-2 border-slate-200 bg-slate-50">📅 {{ plan.created_at|date:"Y-m-d H:i" }}</span>
+                    <span class="px-3 py-1 rounded-lg border-2 border-slate-200 bg-slate-50">💰 预算：{{ plan.budget }}</span>
+                    <span class="px-3 py-1 rounded-lg border-2 border-slate-200 bg-slate-50">⏱ 时间：{{ plan.travel_time }}</span>
+                    {% if plan.origin_location %}
+                    <span class="px-3 py-1 rounded-lg border-2 border-teal-300 bg-teal-50 text-teal-700">📍 出发：{{ plan.origin_location }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="{% url 'planner:planner' %}"
+                   class="px-5 py-2.5 bg-amber-400 text-slate-800 rounded-xl text-sm font-bold
+                          border-[2px] border-slate-800 shadow-cartoon
+                          hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200 whitespace-nowrap">
+                    重新规划 →
+                </a>
+                <button type="button" id="btn-delete-plan"
+                        class="px-5 py-2.5 bg-red-500 text-white rounded-xl text-sm font-bold
+                               border-[2px] border-slate-800 shadow-cartoon
+                               hover:-translate-y-0.5 hover:shadow-cartoon-lg hover:bg-red-600
+                               transition-all duration-200 whitespace-nowrap">
+                    🗑 删除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if plan.status == 'failed' %}
+    <div class="bg-red-50 border-[3px] border-red-300 rounded-2xl p-6 shadow-cartoon-xl">
+        <p class="text-red-700 font-bold">❌ 规划失败</p>
+        <p class="text-red-600 text-sm mt-1">{{ plan.error_message }}</p>
+    </div>
+    {% endif %}
+
+    <!-- ========== 规划过程 ========== -->
+    {% if plan.process_steps %}
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="mb-4">
+            <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Process</p>
+            <h2 class="font-display text-2xl font-extrabold text-slate-800">规划过程</h2>
+        </div>
+        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300">
+            {% for step in plan.process_steps %}
+            <div class="p-3 rounded-xl border-2
+                        {% if step.status == 'success' %}border-emerald-300 bg-emerald-50{% elif step.status == 'failed' %}border-red-300 bg-red-50{% elif step.status == 'warning' %}border-amber-300 bg-amber-50{% else %}border-blue-300 bg-blue-50{% endif %}">
+                <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-7 h-7 rounded-lg
+                                 {% if step.status == 'success' %}bg-emerald-500{% elif step.status == 'failed' %}bg-red-500{% elif step.status == 'warning' %}bg-amber-500{% else %}bg-blue-500{% endif %}
+                                 text-white flex items-center justify-center text-xs font-extrabold
+                                 border-2 border-slate-800 shadow-sm">
+                        {{ forloop.counter }}
+                    </span>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">{{ step.title }}</h4>
+                        <p class="text-slate-600 text-xs mt-0.5">{{ step.description }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========== 路线说明 ========== -->
+    {% if plan.final_plan %}
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="mb-4">
+            <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">AI Result</p>
+            <h2 class="font-display text-2xl font-extrabold text-slate-800">路线说明</h2>
+        </div>
+        <div id="final-plan-render" class="max-w-none leading-relaxed">
+            {{ plan.final_plan|linebreaksbr }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ========== 行程表格 ========== -->
+    {% if plan.stops.exists %}
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="mb-4">
+            <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Itinerary Table</p>
+            <h2 class="font-display text-2xl font-extrabold text-slate-800">行程安排表</h2>
+        </div>
+
+        {% regroup plan.stops.all by day_index as day_stops_groups %}
+        {% for day_group in day_stop_groups %}
+        <div class="mb-6 last:mb-0">
+            <h3 class="font-display text-lg font-extrabold text-slate-800 mb-3 flex items-center gap-2">
+                <span class="inline-flex items-center justify-center w-8 h-8 bg-amber-400 text-slate-800 rounded-lg border-2 border-slate-800 text-sm font-black shadow-sm">
+                    {{ day_group.grouper }}
+                </span>
+                第 {{ day_group.grouper }} 天
+            </h3>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100">
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 w-12">序号</th>
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">景点名称</th>
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">城市</th>
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 hidden sm:table-cell">简介</th>
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 hidden md:table-cell">坐标</th>
+                            <th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 w-20">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stop in day_group.list %}
+                        <tr class="{% if forloop.counter0|divisibleby:2 %}bg-white{% else %}bg-slate-50{% endif %} hover:bg-brand-50 transition-colors">
+                            <td class="px-4 py-3 border-b-2 border-slate-200">
+                                <span class="inline-flex items-center justify-center w-7 h-7 bg-amber-400 text-slate-800 rounded-lg border-2 border-slate-800 text-xs font-black shadow-sm">
+                                    {{ stop.sequence }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 border-b-2 border-slate-200 font-bold text-slate-800">
+                                {{ stop.name }}
+                            </td>
+                            <td class="px-4 py-3 border-b-2 border-slate-200 text-slate-600">
+                                {{ stop.city_name }}
+                            </td>
+                            <td class="px-4 py-3 border-b-2 border-slate-200 text-slate-500 text-xs hidden sm:table-cell">
+                                {{ stop.intro|default:"—"|truncatechars:40 }}
+                            </td>
+                            <td class="px-4 py-3 border-b-2 border-slate-200 text-slate-400 text-xs font-mono hidden md:table-cell">
+                                {{ stop.longitude|floatformat:4 }}, {{ stop.latitude|floatformat:4 }}
+                            </td>
+                            <td class="px-4 py-3 border-b-2 border-slate-200">
+                                {% if stop.attraction %}
+                                <a href="{% url 'travel:attraction_detail' stop.attraction.id %}"
+                                   class="text-brand-600 hover:text-brand-800 font-bold text-xs">详情 →</a>
+                                {% else %}
+                                <span class="text-slate-300 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ========== 路线地图 ========== -->
+    {% if plan.stops.exists %}
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="mb-4">
+            <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Gaode Map</p>
+            <h2 class="font-display text-2xl font-extrabold text-slate-800">路线地图</h2>
+        </div>
+        <div id="route-map" class="w-full h-[450px] bg-slate-100 rounded-xl border-2 border-slate-200"></div>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+function renderMarkdown(md) {
+    if (!md) return '';
+    var html = md;
+    html = html.replace(/(\|.+\|)\n(\|[-:\s|]+\|)\n((?:\|.+\|\n?)+)/g, function(match, header, separator, body) {
+        var headers = header.split('|').filter(function(c){ return c.trim(); }).map(function(c){
+            return '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 bg-slate-100">' + c.trim() + '</th>';
+        }).join('');
+        var rows = body.trim().split('\n').map(function(row) {
+            var cells = row.split('|').filter(function(c){ return c.trim(); }).map(function(c){
+                var cell = c.trim();
+                cell = cell.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-800">$1</strong>');
+                return '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-600">' + cell + '</td>';
+            }).join('');
+            return '<tr class="hover:bg-brand-50 transition-colors">' + cells + '</tr>';
+        }).join('');
+        return '<div class="overflow-x-auto mb-4"><table class="w-full text-sm border-collapse rounded-xl overflow-hidden border-2 border-slate-200"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    });
+    html = html.replace(/^### (.+)$/gm, '<h3 class="font-display text-lg font-extrabold text-slate-800 mt-4 mb-2">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 class="font-display text-xl font-extrabold text-slate-800 mt-6 mb-3">$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1 class="font-display text-2xl font-black text-slate-800 mt-6 mb-3">$1</h1>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-800 font-bold">$1</strong>');
+    html = html.replace(/^- (.+)$/gm, '<li class="text-slate-600 text-sm ml-4 mb-1">$1</li>');
+    html = html.replace(/\n\n/g, '</p><p class="text-slate-600 text-sm leading-relaxed mb-2">');
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
+{% if plan.final_plan %}
+(function() {
+    var el = document.getElementById('final-plan-render');
+    if (el) {
+        var raw = "{{ plan.final_plan|escapejs }}";
+        el.innerHTML = renderMarkdown(raw);
+    }
+})();
+{% endif %}
+</script>
+
+{% if plan.stops.exists %}
+<script src="https://webapi.amap.com/maps?v=2.0&key={{ AMAP_WEB_KEY }}"></script>
+<script>
+(function() {
+    var stops = [
+        {% for stop in plan.stops.all %}
+        {lng: {{ stop.longitude }}, lat: {{ stop.latitude }}, name: '{{ stop.name }}', day: {{ stop.day_index }}, seq: {{ stop.sequence }}, image: '{{ stop.attraction.image|default:"" }}', banner_url: '{{ stop.attraction.banner_url|default:"" }}', score: '{{ stop.attraction.score|default:"" }}', city_name: '{{ stop.city_name|default:"" }}', intro: '{{ stop.intro|default:""|truncatechars:80 }}'}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    if (!window.AMap || !stops.length) return;
+    var map = new AMap.Map('route-map', {zoom: 11, center: [stops[0].lng, stops[0].lat]});
+    var path = [];
+    var dayColors = ['#0f766e', '#b45309', '#7c3aed', '#dc2626', '#2563eb'];
+    var currentInfoWindow = null;
+    var closeTimer = null;
+
+    function cancelCloseTimer() {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    }
+    function scheduleClose(iw) {
+        cancelCloseTimer();
+        closeTimer = setTimeout(function() {
+            if (currentInfoWindow === iw) { iw.close(); currentInfoWindow = null; }
+            closeTimer = null;
+        }, 300);
+    }
+
+    stops.forEach(function(s, i) {
+        var color = dayColors[(s.day - 1) % dayColors.length];
+        var dayLabel = '第' + s.day + '天';
+        var marker = new AMap.Marker({
+            position: [s.lng, s.lat],
+            title: dayLabel + '-' + s.name,
+            label: {
+                content: '<div style="background:' + color + ';color:white;font-weight:bold;' +
+                         'padding:3px 7px;border-radius:6px;border:2px solid #1e293b;' +
+                         'font-size:11px;">' + s.day + '-' + s.seq + '</div>',
+                offset: new AMap.Pixel(-15, -15)
+            }
+        });
+
+        var imgUrl = s.image || s.banner_url || '';
+        var scoreStr = s.score ? ('⭐ ' + s.score) : '';
+        var cityStr = s.city_name || '';
+        var introStr = s.intro || '';
+        if (introStr.length > 60) introStr = introStr.substring(0, 60) + '…';
+
+        var infoContent = '<div class="stop-info-card" style="min-width:220px;max-width:300px;padding:0;font-family:system-ui,sans-serif;">';
+        if (imgUrl) {
+            infoContent += '<div style="width:100%;height:140px;overflow:hidden;border-radius:8px 8px 0 0;background:#f1f5f9;">';
+            infoContent += '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.parentElement.style.height=\'0\';">';
+            infoContent += '</div>';
+        }
+        infoContent += '<div style="padding:10px 12px;">';
+        infoContent += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:4px;">' + s.name + '</div>';
+        infoContent += '<div style="font-size:12px;color:#64748b;">' + dayLabel + (cityStr ? ' · ' + cityStr : '') + (scoreStr ? ' · ' + scoreStr : '') + '</div>';
+        if (introStr) {
+            infoContent += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.4;">' + introStr + '</div>';
+        }
+        infoContent += '</div></div>';
+
+        var infoWindow = new AMap.InfoWindow({
+            content: infoContent,
+            offset: new AMap.Pixel(0, -30),
+            closeWhenClickMap: true
+        });
+
+        marker.on('mouseover', function() {
+            cancelCloseTimer();
+            if (currentInfoWindow && currentInfoWindow !== infoWindow) {
+                currentInfoWindow.close();
+            }
+            infoWindow.open(map, marker.getPosition());
+            currentInfoWindow = infoWindow;
+        });
+        marker.on('mouseout', function() {
+            scheduleClose(infoWindow);
+        });
+        marker.on('click', function() {
+            cancelCloseTimer();
+            if (currentInfoWindow && currentInfoWindow !== infoWindow) {
+                currentInfoWindow.close();
+            }
+            infoWindow.open(map, marker.getPosition());
+            currentInfoWindow = infoWindow;
+        });
+
+        map.add(marker);
+        path.push([s.lng, s.lat]);
+    });
+
+    map.on('mouseover', function(e) {
+        var target = e.target;
+        if (target && target.className && target.className.indexOf && target.className.indexOf('stop-info-card') !== -1) {
+            cancelCloseTimer();
+        }
+    });
+    if (path.length > 1) {
+        map.add(new AMap.Polyline({path: path, strokeColor: '#0f766e', strokeWeight: 3}));
+    }
+    map.setFitView();
+})();
+{% endif %}
+
+<script>
+(function() {
+    var btnDelete = document.getElementById('btn-delete-plan');
+    if (!btnDelete) return;
+
+    btnDelete.addEventListener('click', function() {
+        if (!confirm('确认删除这条规划记录？删除后无法恢复。')) return;
+
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        var token = csrfToken ? csrfToken.value : '';
+        if (!token) {
+            var cookieMatch = document.cookie.match(/csrftoken=([^;]+)/);
+            token = cookieMatch ? cookieMatch[1] : '';
+        }
+
+        btnDelete.disabled = true;
+        btnDelete.textContent = '删除中...';
+
+        fetch('{% url "planner:planner_delete" plan.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': token,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(function(resp) {
+            if (resp.ok) {
+                window.location.href = '{% url "planner:planner" %}';
+            } else {
+                alert('删除失败，请重试');
+                btnDelete.disabled = false;
+                btnDelete.textContent = '🗑 删除';
+            }
+        }).catch(function() {
+            alert('网络错误，请重试');
+            btnDelete.disabled = false;
+            btnDelete.textContent = '🗑 删除';
+        });
+    });
+})();
+</script>
+{% endblock %}

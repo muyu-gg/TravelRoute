@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% load image_filters %}
+{% block title %}{{ attraction.name }} - 景点详情{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="javascript:history.back()"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回
+    </a>
+
+    <!-- ========== Hero Banner ========== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 bg-white border-[3px] border-slate-800 rounded-[20px] overflow-hidden shadow-cartoon-xl">
+        <!-- 左侧图片 -->
+        <div class="relative h-[320px] sm:h-[400px] lg:h-auto overflow-hidden group">
+            {% if attraction.banner_url %}
+            <img src="{{ attraction.banner_url|banner_hd }}" alt="{{ attraction.name }}"
+                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                 onerror="this.onerror=null;this.src='https://placehold.co/800x600/e2e8f0/64748b?text={{ attraction.name }}';">
+            {% elif attraction.image %}
+            <img src="{{ attraction.image|hd:"800_600" }}" alt="{{ attraction.name }}"
+                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                 onerror="this.onerror=null;this.src='https://placehold.co/800x600/e2e8f0/64748b?text={{ attraction.name }}';">
+            {% else %}
+            <div class="w-full h-full bg-brand-200 flex items-center justify-center">
+                <span class="text-6xl">🏞️</span>
+            </div>
+            {% endif %}
+            {% if attraction.activity_name %}
+            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent text-white p-6">
+                <span class="inline-block bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-md mb-2">
+                    {{ attraction.activity_time|default:"" }}
+                </span>
+                <h2 class="font-display text-2xl sm:text-3xl font-extrabold drop-shadow-lg">
+                    {{ attraction.activity_name }}
+                </h2>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 右侧信息 -->
+        <div class="p-6 sm:p-8 lg:p-10 bg-brand-100 flex flex-col justify-center gap-5">
+            <!-- 收藏按钮 -->
+            <div class="flex justify-end">
+                <button id="favorite-btn"
+                        data-id="{{ attraction.id }}"
+                        class="px-5 py-2.5 rounded-xl text-sm font-bold border-2 border-slate-800
+                               transition-all duration-200 hover:-translate-y-0.5 hover:shadow-cartoon
+                               {% if is_favorited %}bg-red-500 text-white border-red-500{% else %}bg-amber-500 text-white border-amber-500{% endif %}">
+                    {% if is_favorited %}❤️ 已收藏{% else %}🤍 收藏{% endif %}
+                </button>
+            </div>
+
+            <!-- 标题 -->
+            <h1 class="font-display text-3xl sm:text-4xl font-black text-slate-800 leading-tight">
+                {{ attraction.name }}
+            </h1>
+            <p class="text-slate-500 text-base">
+                📍 {{ attraction.city_name }}{% if attraction.area %} · {{ attraction.area }}{% endif %}
+            </p>
+
+            <!-- 标签 -->
+            {% if tag_list %}
+            <div class="flex flex-wrap gap-2">
+                {% for tag in tag_list %}
+                <span class="bg-white text-brand-700 text-xs font-semibold px-3 py-1 rounded-full border-2 border-slate-800">
+                    {{ tag }}
+                </span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- 数据指标 -->
+            <div class="flex flex-wrap gap-3">
+                <div class="flex items-center gap-1.5 bg-white px-4 py-2 rounded-xl border-2 border-slate-800 shadow-cartoon">
+                    <span>⭐</span>
+                    <span class="text-xs text-slate-500 font-semibold">评分</span>
+                    <span class="text-sm font-extrabold text-slate-800">{{ attraction.score|floatformat:1 }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-white px-4 py-2 rounded-xl border-2 border-slate-800 shadow-cartoon">
+                    <span>🔥</span>
+                    <span class="text-xs text-slate-500 font-semibold">热度</span>
+                    <span class="text-sm font-extrabold text-slate-800">{{ attraction.heat_score|default:"0"|floatformat:1 }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-white px-4 py-2 rounded-xl border-2 border-slate-800 shadow-cartoon">
+                    <span>💰</span>
+                    <span class="text-xs text-slate-500 font-semibold">票价</span>
+                    <span class="text-sm font-extrabold text-red-600">¥{{ attraction.actual_price|default:"0" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== Toast ========== -->
+    <div id="toast-box"
+         class="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-slate-800 text-white
+                px-6 py-3 rounded-xl border-[3px] border-slate-800 shadow-cartoon-lg
+                font-bold text-sm max-w-sm text-center
+                opacity-0 invisible -translate-y-3 transition-all duration-300 pointer-events-none">
+    </div>
+
+    <!-- ========== 信息卡片 ========== -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- 景点信息 -->
+        <div class="bg-white border-[3px] border-slate-800 rounded-[20px] overflow-hidden shadow-cartoon-lg">
+            <div class="bg-brand-700 text-white px-6 py-4 border-b-[3px] border-slate-800">
+                <h3 class="font-bold text-base m-0">📍 景点信息</h3>
+            </div>
+            <div class="p-5 space-y-0 divide-y divide-dashed divide-slate-300">
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">唯一标识</span>
+                    <span class="text-slate-800 text-sm font-bold">{{ attraction.poi_id }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">评论数量</span>
+                    <span class="text-slate-800 text-sm font-bold">{{ attraction.comment_count|default:0 }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">是否推荐</span>
+                    {% if attraction.is_recommend %}
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-md">是</span>
+                    {% else %}
+                    <span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-md">否</span>
+                    {% endif %}
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">是否广告</span>
+                    {% if attraction.is_advertisement %}
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-md">是</span>
+                    {% else %}
+                    <span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-md">否</span>
+                    {% endif %}
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">距市中心</span>
+                    <span class="text-slate-800 text-sm font-bold">
+                        {% if attraction.distance_center %}{{ attraction.distance_center }} km{% else %}{{ attraction.distance|default:"--" }}{% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">坐标位置</span>
+                    <span class="font-mono text-xs text-slate-500">{{ attraction.longitude }}, {{ attraction.latitude }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 票价信息 -->
+        <div class="bg-white border-[3px] border-slate-800 rounded-[20px] overflow-hidden shadow-cartoon-lg">
+            <div class="bg-amber-500 text-white px-6 py-4 border-b-[3px] border-slate-800">
+                <h3 class="font-bold text-base m-0">🎫 票价信息</h3>
+            </div>
+            <div class="p-5 space-y-0 divide-y divide-dashed divide-slate-300">
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">实际票价</span>
+                    <span class="text-red-600 text-base font-extrabold">¥{{ attraction.actual_price|default:"--" }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">市场票价</span>
+                    <span class="text-slate-800 text-sm font-bold">¥{{ attraction.market_price|default:"--" }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">优惠价格</span>
+                    <span class="text-emerald-600 text-sm font-bold">{{ attraction.preferential_price|default:"暂无优惠" }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">优惠描述</span>
+                    <span class="text-slate-800 text-sm font-bold">{{ attraction.preferential_desc|default:"已减" }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">价格类型</span>
+                    <span class="text-slate-800 text-sm font-bold">{{ attraction.price_type|default:"--" }}</span>
+                </div>
+                <div class="flex justify-between items-center py-3">
+                    <span class="text-slate-500 text-sm font-medium">价格说明</span>
+                    <span class="text-slate-800 text-sm font-bold">{{ attraction.price_desc|default:"门票" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 地图位置 ========== -->
+    {% if attraction.longitude and attraction.latitude %}
+    <div class="bg-white border-[3px] border-slate-800 rounded-[20px] overflow-hidden shadow-cartoon-lg">
+        <div class="bg-brand-700 text-white px-6 py-4 border-b-[3px] border-slate-800">
+            <h3 class="font-bold text-base m-0">🗺️ 地理位置地图</h3>
+        </div>
+        <div id="attraction-map" style="width:100%;height:320px;"></div>
+    </div>
+    {% endif %}
+
+    <!-- ========== 数据来源 ========== -->
+    <div class="bg-white border-[3px] border-slate-800 rounded-[20px] px-6 py-5 shadow-cartoon-lg
+                flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <span class="text-4xl">💾</span>
+            <div>
+                <strong class="block text-slate-800 text-base">数据来源</strong>
+                <p class="text-slate-500 text-sm m-0">当前展示的是本站 {{ attraction.data_source|default:"MySQL" }} 保存的景点数据。</p>
+            </div>
+        </div>
+        <a href="{{ attraction.detail_url }}" target="_blank"
+           class="inline-block px-5 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm
+                  border-2 border-slate-800 shadow-cartoon transition-all duration-200
+                  hover:-translate-y-0.5 hover:shadow-cartoon-lg whitespace-nowrap">
+            查看携程原始页面 →
+        </a>
+    </div>
+
+    <!-- ========== 评论区 ========== -->
+    <div class="bg-white border-[3px] border-slate-800 rounded-[20px] p-6 sm:p-8 shadow-cartoon-lg">
+        <!-- 标题 -->
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="font-display text-xl font-extrabold text-slate-800 m-0">💬 用户评论</h3>
+            <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border-2 border-slate-800">
+                {{ comments|length }} 条评论
+            </span>
+        </div>
+
+        <!-- 发表评论 -->
+        <form id="comment-form" class="mb-8 space-y-3">
+            {% csrf_token %}
+            <textarea name="content" rows="4" required
+                      class="w-full p-4 border-2 border-slate-800 rounded-xl text-sm
+                             bg-slate-50 font-sans resize-y
+                             focus:outline-none focus:border-brand-500 focus:bg-white focus:shadow-cartoon
+                             transition-all duration-200"
+                      placeholder="写下你的旅行想法..."></textarea>
+            <button type="submit"
+                    class="px-6 py-2.5 bg-brand-700 text-white rounded-xl text-sm font-bold
+                           border-2 border-slate-800 shadow-cartoon
+                           transition-all duration-200 hover:-translate-y-0.5
+                           hover:shadow-cartoon-lg hover:bg-brand-800">
+                ✈️ 发表评论
+            </button>
+        </form>
+
+        <!-- 评论列表 -->
+        <div class="space-y-4">
+            {% for comment in comments %}
+            <div class="flex gap-4 p-4 bg-slate-50 border-2 border-slate-200 rounded-xl
+                        transition-all duration-200 hover:bg-slate-100 hover:border-slate-300">
+                <div class="flex-shrink-0">
+                    {% if comment.user.profile.avatar %}
+                    <img src="{{ comment.user.profile.avatar.url }}" alt=""
+                         class="w-12 h-12 rounded-full object-cover border-2 border-slate-800">
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full bg-brand-100 text-brand-700
+                                flex items-center justify-center text-lg font-extrabold
+                                border-2 border-slate-800">
+                        {{ comment.user.username.0|upper }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 mb-1.5">
+                        <strong class="text-slate-800 text-sm font-bold">{{ comment.user.username }}</strong>
+                        <time class="text-slate-400 text-xs">{{ comment.created_at|date:"Y-m-d H:i" }}</time>
+                    </div>
+                    <p class="text-slate-600 text-sm leading-relaxed m-0">{{ comment.content }}</p>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-12 text-slate-400">
+                <div class="text-5xl mb-4 opacity-50">💭</div>
+                <p class="text-lg font-semibold text-slate-500 mb-1">还没有评论</p>
+                <p class="text-sm">成为第一个分享这个景点体验的人。</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('favorite-btn').addEventListener('click', function() {
+    var btn = this;
+    var aid = btn.dataset.id;
+    var fd = new FormData();
+    fd.append('attraction_id', aid);
+    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('{% url "travel:favorite_toggle" %}', {
+        method: 'POST',
+        body: fd,
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.is_favorited) {
+            btn.innerHTML = '❤️ 已收藏';
+            btn.className = btn.className.replace(/bg-amber-500 border-amber-500/g, '').replace(/bg-red-500 border-red-500/g, '');
+            btn.classList.add('bg-red-500', 'border-red-500');
+            showToast('✅ 收藏成功');
+        } else {
+            btn.innerHTML = '🤍 收藏';
+            btn.className = btn.className.replace(/bg-red-500 border-red-500/g, '').replace(/bg-amber-500 border-amber-500/g, '');
+            btn.classList.add('bg-amber-500', 'border-amber-500');
+            showToast('❌ 已取消收藏');
+        }
+    });
+});
+
+document.getElementById('comment-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = this;
+    var fd = new FormData(form);
+
+    fetch('/api/attraction/{{ attraction.id }}/comment/', {
+        method: 'POST',
+        body: fd,
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.success) {
+            form.reset();
+            showToast('🎉 评论发表成功！');
+            setTimeout(function() { location.reload(); }, 1500);
+        } else {
+            showToast('⚠️ ' + (d.error || '请先登录'));
+        }
+    })
+    .catch(function() { showToast('❌ 网络错误'); });
+});
+
+function showToast(msg) {
+    var t = document.getElementById('toast-box');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.visibility = 'visible';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    t.style.pointerEvents = 'auto';
+    setTimeout(function() {
+        t.style.opacity = '0';
+        t.style.visibility = 'hidden';
+        t.style.transform = 'translateX(-50%) translateY(-12px)';
+        t.style.pointerEvents = 'none';
+    }, 2500);
+}
+</script>
+
+{% if attraction.longitude and attraction.latitude %}
+<script type="text/javascript">
+window._AMapSecurityConfig = { securityJsCode: '' };
+</script>
+<script type="text/javascript"
+        src="https://webapi.amap.com/maps?v=2.0&key={{ AMAP_JS_KEY }}">
+</script>
+<script type="text/javascript">
+(function() {
+    var map = new AMap.Map('attraction-map', {
+        zoom: 14,
+        center: [{{ attraction.longitude }}, {{ attraction.latitude }}],
+        viewMode: '2D'
+    });
+    var marker = new AMap.Marker({
+        position: [{{ attraction.longitude }}, {{ attraction.latitude }}],
+        title: '{{ attraction.name }}'
+    });
+    map.add(marker);
+    var infoWindow = new AMap.InfoWindow({
+        content: '<div style="padding:4px 8px;font-weight:bold;">{{ attraction.name }}</div>',
+        offset: new AMap.Pixel(0, -30)
+    });
+    infoWindow.open(map, [{{ attraction.longitude }}, {{ attraction.latitude }}]);
+})();
+</script>
+{% endif %}
+{% endblock %}

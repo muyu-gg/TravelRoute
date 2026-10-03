@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}发布攻略 - 觅途行{% endblock %}
+{% block content %}
+<section class="page-section">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="javascript:history.back()"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon mb-4
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回
+    </a>
+
+    <div class="section-header">
+        <h2>发布攻略</h2>
+    </div>
+
+    {% if errors %}
+    <div class="alert alert-error">
+        {% for error in errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="guide-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>攻略标题</label>
+            <input type="text" name="title" required placeholder="请输入攻略标题">
+        </div>
+        <div class="form-group">
+            <label>目的地城市</label>
+            <input type="text" name="city" required placeholder="如：成都">
+        </div>
+        <div class="form-group">
+            <label>攻略摘要</label>
+            <input type="text" name="summary" placeholder="简短描述攻略内容">
+        </div>
+        <div class="form-group">
+            <label>攻略正文</label>
+            <textarea name="content" rows="12" required placeholder="请输入攻略正文"></textarea>
+        </div>
+        <div class="form-group">
+            <label>攻略图片</label>
+            <input type="file" name="images" multiple accept="image/*">
+        </div>
+        <div class="form-group">
+            <label>关联景点</label>
+            <div class="attraction-search-box">
+                <input type="text" id="attraction-search-input" placeholder="搜索景点名称">
+                <button type="button" id="attraction-search-btn" class="btn-outline">搜索</button>
+            </div>
+            <div id="attraction-search-results"></div>
+            <div id="selected-attractions"></div>
+        </div>
+        <button type="submit" class="btn-primary">发布攻略</button>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('attraction-search-btn').addEventListener('click', function() {
+    var keyword = document.getElementById('attraction-search-input').value;
+    fetch('{% url "guides:attraction_search" %}?keyword=' + encodeURIComponent(keyword))
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            var container = document.getElementById('attraction-search-results');
+            container.innerHTML = '';
+            data.forEach(function(item) {
+                var div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.innerHTML = '<span>' + item.name + ' (' + item.city_name + ')</span>';
+                div.addEventListener('click', function() {
+                    var selected = document.getElementById('selected-attractions');
+                    var existing = selected.querySelector('input[value="' + item.id + '"]');
+                    if (existing) return;
+                    var tag = document.createElement('div');
+                    tag.className = 'selected-tag';
+                    tag.innerHTML = item.name + ' <input type="hidden" name="attraction_ids" value="' + item.id + '"><button type="button" class="remove-tag">&times;</button>';
+                    tag.querySelector('.remove-tag').addEventListener('click', function() { tag.remove(); });
+                    selected.appendChild(tag);
+                });
+                container.appendChild(div);
+            });
+        });
+});
+</script>
+{% endblock %}

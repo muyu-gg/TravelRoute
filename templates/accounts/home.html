@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load image_filters %}
+
+{% block title %}首页 - 觅途行{% endblock %}
+
+{% block content %}
+<main class="dashboard-main-cartoon">
+
+    <section class="carousel-section">
+        <div class="carousel-container">
+            <div class="carousel-wrapper" id="carousel">
+                {% for attraction in carousel_attractions %}
+                <div class="carousel-slide">
+                    <a href="{% url 'travel:attraction_detail' attraction.id %}" class="carousel-link">
+                        <img src="{% if attraction.banner_url %}{{ attraction.banner_url|banner_hd }}{% else %}{{ attraction.image|hd:"960_540" }}{% endif %}" alt="{{ attraction.name }}" class="carousel-img"
+                             onerror="this.onerror=null;this.src='https://placehold.co/960x540/e2e8f0/64748b?text={{ attraction.name }}';">
+                        <div class="carousel-caption">
+                            <h2>{{ attraction.name }}</h2>
+                            <p>{{ attraction.city_name }} · 评分 {{ attraction.score|floatformat:1 }}</p>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="carousel-btn carousel-prev" id="prevBtn">❮</button>
+            <button class="carousel-btn carousel-next" id="nextBtn">❯</button>
+            <div class="carousel-indicators" id="carouselIndicators">
+                {% for attraction in carousel_attractions %}
+                <span class="indicator{% if forloop.first %} active{% endif %}" data-index="{{ forloop.counter0 }}"></span>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="home-section">
+        <div class="section-header">
+            <h2>景区推荐</h2>
+            <a href="{% url 'travel:attraction_list' %}" class="link-more">查看全部 →</a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {% for attraction in recommended_attractions %}
+            <a href="{% url 'travel:attraction_detail' attraction.id %}"
+               class="group block bg-white border-[3px] border-slate-800 rounded-2xl overflow-hidden
+                      shadow-cartoon hover:-translate-y-1 hover:shadow-cartoon-lg transition-all duration-200">
+                <!-- 图片区域：固定高度 + relative定位 -->
+                <div class="relative w-full h-48 bg-slate-100 overflow-hidden">
+                    <img src="{{ attraction.image|hd:"600_400" }}"
+                         alt="{{ attraction.name }}"
+                         loading="lazy"
+                         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                         onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/64748b?text={{ attraction.name }}';">
+                    <!-- 免费标签：必须 is_free=True 且票价确实是"免费" -->
+                    {% if attraction.is_free and attraction.actual_price == '免费' %}
+                    <span class="absolute top-3 left-3 bg-emerald-500 text-white text-xs font-bold
+                                 px-2.5 py-1 rounded-md border-2 border-slate-800 shadow-sm z-10">
+                        免费
+                    </span>
+                    {% endif %}
+                </div>
+                <!-- 信息区域 -->
+                <div class="p-4 space-y-2">
+                    <h3 class="font-display text-base font-extrabold text-slate-800 line-clamp-1 leading-tight">
+                        {{ attraction.name }}
+                    </h3>
+                    <p class="text-slate-500 text-sm">📍 {{ attraction.city_name }}</p>
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-sm font-semibold text-amber-600">⭐ {{ attraction.score|floatformat:1 }}</span>
+                        <span class="text-xs font-medium text-slate-500 px-2 py-0.5 rounded">
+                            ¥{{ attraction.actual_price|default:"--" }}
+                        </span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="home-section">
+        <div class="section-header">
+            <h2>最新攻略</h2>
+            <a href="{% url 'guides:guide_list' %}" class="link-more">查看全部 →</a>
+        </div>
+        <div class="card-grid card-grid-4">
+            {% for guide in recent_guides %}
+            <a href="{% url 'guides:guide_detail' guide.id %}" class="card-item">
+                <div class="card-body">
+                    <h3>{{ guide.title }}</h3>
+                    <p class="card-meta">{{ guide.city }} · {{ guide.author.username }}</p>
+                    <p class="card-summary">{{ guide.summary|default:""|truncatechars:60 }}</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var currentSlide = 0;
+var slides = document.querySelectorAll('.carousel-slide');
+var indicators = document.querySelectorAll('.indicator');
+var totalSlides = slides.length;
+
+function showSlide(index) {
+    if (index >= totalSlides) index = 0;
+    if (index < 0) index = totalSlides - 1;
+    currentSlide = index;
+
+    var wrapper = document.getElementById('carousel');
+    wrapper.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+
+    indicators.forEach(function(ind, i) {
+        ind.classList.toggle('active', i === currentSlide);
+    });
+}
+
+document.getElementById('nextBtn').addEventListener('click', function() {
+    showSlide(currentSlide + 1);
+});
+
+document.getElementById('prevBtn').addEventListener('click', function() {
+    showSlide(currentSlide - 1);
+});
+
+indicators.forEach(function(ind, index) {
+    ind.addEventListener('click', function() {
+        showSlide(index);
+    });
+});
+
+setInterval(function() {
+    showSlide(currentSlide + 1);
+}, 5000);
+</script>
+{% endblock %}

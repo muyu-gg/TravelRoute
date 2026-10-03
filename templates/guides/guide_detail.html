@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load image_filters %}
+{% block title %}{{ guide.title }} - 攻略详情{% endblock %}
+{% block content %}
+<section class="detail-section">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="javascript:history.back()"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon mb-4
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回
+    </a>
+
+    <div class="detail-header">
+        <h1>{{ guide.title }}</h1>
+        <div class="detail-meta">
+            <span>{{ guide.city }}</span>
+            <span>{{ guide.author.username }}</span>
+            <span>{{ guide.created_at|date:"Y-m-d H:i" }}</span>
+            <span>浏览 {{ guide.view_count }}</span>
+        </div>
+    </div>
+
+    {% if guide_images %}
+    <div class="detail-gallery">
+        {% for img in guide_images %}
+        <img src="{{ img.image.url }}" alt="攻略图片" loading="lazy">
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="detail-content">
+        {{ guide.content|linebreaksbr }}
+    </div>
+
+    {% if guide_attractions %}
+    <div class="related-attractions">
+        <h2>关联景点</h2>
+        <div class="card-grid">
+            {% for ga in guide_attractions %}
+            <a href="{% url 'travel:attraction_detail' ga.attraction.id %}" class="card-item">
+                <div class="card-image">
+                    <img src="{{ ga.attraction.image|hd:"600_400" }}" alt="{{ ga.attraction.name }}" loading="lazy"
+                         onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/64748b?text={{ ga.attraction.name }}';">
+                </div>
+                <div class="card-body">
+                    <h3>{{ ga.attraction.name }}</h3>
+                    <p class="card-meta">{{ ga.attraction.city_name }}</p>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

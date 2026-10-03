@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load image_filters %}
+{% block title %}景点浏览 - 觅途行{% endblock %}
+{% block content %}
+<section class="page-section">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="{% url 'accounts:home' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon mb-4
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回首页
+    </a>
+
+    <div class="section-header">
+        <h2>景点浏览</h2>
+        <span class="result-count">共 {{ total_count }} 个景点</span>
+    </div>
+
+    <form method="get" class="filter-bar">
+        <input type="text" name="keyword" value="{{ keyword }}" placeholder="搜索景点名称、标签、区域">
+        <select name="city">
+            <option value="">全部城市</option>
+            {% for c in city_options %}
+            <option value="{{ c }}" {% if c == city %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+        </select>
+        <select name="is_free">
+            <option value="">全部价格</option>
+            <option value="1" {% if is_free == '1' %}selected{% endif %}>免费</option>
+            <option value="0" {% if is_free == '0' %}selected{% endif %}>收费</option>
+        </select>
+        <button type="submit" class="btn-primary">搜索</button>
+    </form>
+
+    <div class="card-grid">
+        {% for attraction in page_obj %}
+        <a href="{% url 'travel:attraction_detail' attraction.id %}" class="card-item">
+            <div class="card-image">
+                <img src="{{ attraction.image|hd:"600_400" }}" alt="{{ attraction.name }}" loading="lazy"
+                     onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/64748b?text={{ attraction.name }}';">
+            </div>
+            <div class="card-body">
+                <h3>{{ attraction.name }}</h3>
+                <p class="card-meta">{{ attraction.city_name }} · {{ attraction.area|default:"" }}</p>
+                <div class="card-stats">
+                    <span class="score">⭐ {{ attraction.score|floatformat:1 }}</span>
+                    <span class="comments">💬 {{ attraction.comment_count|default:0 }}</span>
+                </div>
+                <p class="card-price">{{ attraction.actual_price }}</p>
+            </div>
+        </a>
+        {% empty %}
+        <p class="empty-hint">暂无景点数据，请先运行爬虫脚本导入数据。</p>
+        {% endfor %}
+    </div>
+
+    {% if paginator.num_pages > 1 %}
+    <nav class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="{{ page_query_prefix }}page={{ page_obj.previous_page_number }}" class="page-btn">上一页</a>
+        {% endif %}
+        {% for item in pagination_items %}
+            {% if item.is_ellipsis %}
+            <span class="page-ellipsis">…</span>
+            {% else %}
+            <a href="{{ page_query_prefix }}page={{ item.number }}"
+               class="page-btn{% if item.is_current %} active{% endif %}">{{ item.number }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="{{ page_query_prefix }}page={{ page_obj.next_page_number }}" class="page-btn">下一页</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}

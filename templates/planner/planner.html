@@ -1,0 +1,1182 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}AI路线规划 - 觉途行{% endblock %}
+{% block content %}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+
+    <!-- ========== 返回按钮 ========== -->
+    <a href="{% url 'accounts:home' %}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 rounded-xl text-sm font-bold
+              border-[2px] border-slate-800 shadow-cartoon
+              hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200">
+        ← 返回首页
+    </a>
+
+    <!-- ========== 顶部标题栏 ========== -->
+    <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold text-brand-600 mb-1">LangGraph Agent</p>
+                <h1 class="font-display text-3xl sm:text-4xl font-black text-slate-800">
+                    AI路线规划助手
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">
+                    输入出发地、目的地、预算、时间和偏好，系统会实时展示 LangGraph 执行过程并生成多种地图路线方案。
+                </p>
+            </div>
+            {% if recent_plans %}
+            <a href="#recent-plans"
+               class="px-5 py-2.5 bg-amber-400 text-slate-800 rounded-xl text-sm font-bold
+                      border-[2px] border-slate-800 shadow-cartoon
+                      hover:-translate-y-0.5 hover:shadow-cartoon-lg transition-all duration-200 whitespace-nowrap">
+                最近规划 →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ========== 主内容区：左右两栏 ========== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- ===== 左侧：Route Inputs 规划条件 ===== -->
+        <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+            <!-- 标题 -->
+            <div class="mb-6">
+                <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Route Inputs</p>
+                <h2 class="font-display text-2xl font-extrabold text-slate-800">规划条件</h2>
+            </div>
+
+            <!-- 表单 -->
+            <form id="planner-form" class="space-y-5">
+                {% csrf_token %}
+
+                <!-- 出发地点 -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">
+                        出发地点
+                        <span class="text-slate-400 font-normal ml-1">（可选，留空则仅规划景点间路线）</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" name="origin_location" id="planner-origin"
+                               placeholder="如：北京西站、我的位置"
+                               class="flex-1 px-4 py-3 border-[2px] border-slate-300 rounded-xl text-sm
+                                      bg-white focus:border-brand-500 focus:outline-none focus:ring-2
+                                      focus:ring-brand-200 transition-all duration-200">
+                        <button type="button" id="btn-locate-me"
+                                class="px-4 py-3 bg-teal-500 text-white rounded-xl text-sm font-bold
+                                       border-[2px] border-slate-800 shadow-cartoon
+                                       hover:-translate-y-0.5 hover:shadow-cartoon-lg hover:bg-teal-600
+                                       active:translate-y-0 active:shadow-cartoon-sm
+                                       transition-all duration-200 whitespace-nowrap"
+                                title="使用高德定位获取当前位置">
+                            📍 定位
+                        </button>
+                    </div>
+                    <p id="origin-status" class="text-xs text-slate-400 mt-1"></p>
+                    <input type="hidden" name="origin_coords" id="planner-origin-coords" value="">
+                </div>
+
+                <!-- 目的地城市 + 旅行预算（双列） -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">目的地城市</label>
+                        <input type="text" name="city" id="planner-city" required
+                               placeholder="北京"
+                               class="w-full px-4 py-3 border-[2px] border-slate-300 rounded-xl text-sm
+                                      bg-white focus:border-brand-500 focus:outline-none focus:ring-2
+                                      focus:ring-brand-200 transition-all duration-200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">旅行预算</label>
+                        <input type="text" name="budget" id="planner-budget" required
+                               placeholder="人均1000"
+                               class="w-full px-4 py-3 border-[2px] border-slate-300 rounded-xl text-sm
+                                      bg-white focus:border-brand-500 focus:outline-none focus:ring-2
+                                      focus:ring-brand-200 transition-all duration-200">
+                    </div>
+                </div>
+
+                <!-- 出行时间 -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">出行时间</label>
+                    <input type="text" name="travel_time" id="planner-time" required
+                           placeholder="3天2晚"
+                           class="w-full px-4 py-3 border-[2px] border-slate-300 rounded-xl text-sm
+                                  bg-white focus:border-brand-500 focus:outline-none focus:ring-2
+                                  focus:ring-brand-200 transition-all duration-200">
+                </div>
+
+                <!-- 旅行偏好 -->
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">旅行偏好</label>
+                    <textarea name="preferences" id="planner-pref" rows="4" required
+                              placeholder="历史古迹"
+                              class="w-full px-4 py-3 border-[2px] border-slate-300 rounded-xl text-sm
+                                     bg-white focus:border-brand-500 focus:outline-none focus:ring-2
+                                     focus:ring-brand-200 transition-all duration-200 resize-y"></textarea>
+                </div>
+
+                <!-- 提交按钮 -->
+                <button type="submit"
+                        class="w-full px-6 py-3.5 bg-amber-500 text-white rounded-xl text-base font-bold
+                               border-[3px] border-slate-800 shadow-cartoon-lg
+                               hover:-translate-y-1 hover:shadow-cartoon-xl hover:bg-amber-600
+                               active:translate-y-0 active:shadow-cartoon
+                               transition-all duration-200">
+                    开始规划 🚀
+                </button>
+            </form>
+
+            <!-- 最近规划列表 -->
+            {% if recent_plans %}
+            <div id="recent-plans" class="mt-8 pt-6 border-t-2 border-dashed border-slate-200">
+                <h3 class="font-bold text-slate-800 text-base mb-4">最近规划</h3>
+                <div class="space-y-2">
+                    {% for plan in recent_plans %}
+                    <div class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl
+                                border-2 border-slate-200 hover:bg-brand-50 hover:border-brand-300
+                                transition-all duration-200 group">
+                        <a href="{% url 'planner:planner_result' plan.id %}"
+                           class="flex-1 flex items-center justify-between min-w-0">
+                            <span class="font-semibold text-slate-800 text-sm truncate">{{ plan.city }}</span>
+                            <div class="flex items-center gap-3 flex-shrink-0">
+                                <span class="text-xs font-bold px-2 py-1 rounded-md
+                                             {% if plan.status == 'completed' %}bg-emerald-100 text-emerald-700
+                                             {% elif plan.status == 'failed' %}bg-red-100 text-red-700
+                                             {% else %}bg-amber-100 text-amber-700{% endif %}">
+                                    {{ plan.get_status_display }}
+                                </span>
+                                <span class="text-xs text-slate-400">{{ plan.created_at|date:"m-d H:i" }}</span>
+                            </div>
+                        </a>
+                        <button type="button" class="btn-delete-recent-plan flex-shrink-0"
+                                data-plan-id="{{ plan.id }}"
+                                title="删除此规划">
+                            <svg class="w-4 h-4 text-slate-400 hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ===== 右侧：Graph Process LangGraph规划过程 ===== -->
+        <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+            <!-- 标题 -->
+            <div class="mb-6">
+                <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Graph Process</p>
+                <h2 class="font-display text-2xl font-extrabold text-slate-800">LangGraph规划过程</h2>
+            </div>
+
+            <!-- 步骤列表容器 -->
+            <div id="planner-steps"
+                 class="space-y-3 max-h-[600px] overflow-y-auto pr-2
+                        scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                <!-- 步骤会通过JS动态插入这里 -->
+                <div class="text-center py-12 text-slate-400">
+                    <div class="text-5xl mb-4 opacity-50">🤖</div>
+                    <p class="text-lg font-semibold text-slate-500">等待开始规划...</p>
+                    <p class="text-sm mt-1">填写左侧表单并点击"开始规划"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 结果展示区（初始隐藏） ========== -->
+    <div id="planner-result" class="hidden space-y-6">
+
+        <!-- AI 路线结果（全宽，支持 Markdown 表格渲染） -->
+        <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+            <div class="mb-4">
+                <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">AI Result</p>
+                <h2 class="font-display text-2xl font-extrabold text-slate-800">路线规划结果</h2>
+            </div>
+
+            <div id="planner-final"
+                 class="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300">
+                <!-- 结果内容会通过JS插入，支持 Markdown 表格 -->
+            </div>
+        </div>
+
+        <!-- ========== 行程站点表格 ========== -->
+        <div id="route-stops-table" class="hidden">
+            <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+                <div class="mb-4">
+                    <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Itinerary Table</p>
+                    <h2 class="font-display text-2xl font-extrabold text-slate-800">行程安排表</h2>
+                </div>
+                <div id="stops-table-container"
+                     class="overflow-x-auto">
+                    <!-- 表格通过JS动态插入 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 上半部分：高德地图 + 多种交通方案 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- 左侧：高德地图 -->
+            <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+                <div class="mb-4">
+                    <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Gaode Map</p>
+                    <h2 class="font-display text-2xl font-extrabold text-slate-800">高德地图路线</h2>
+                </div>
+
+                <div id="planner-map"
+                     class="w-full h-[450px] bg-slate-100 rounded-xl border-2 border-slate-200
+                            flex items-center justify-center text-slate-400">
+                    <div class="text-center">
+                        <div class="text-6xl mb-3">🗺️</div>
+                        <p class="text-lg font-semibold">地图加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：多种交通方案 -->
+            <div id="transit-plans-section" class="hidden">
+                <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-6 sm:p-8 shadow-cartoon-xl">
+                    <div class="mb-4">
+                        <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Transit Plans</p>
+                        <h2 class="font-display text-2xl font-extrabold text-slate-800">多种交通方案</h2>
+                        <p class="text-slate-500 text-sm mt-1">从出发地到首个景点的公交/地铁路线对比</p>
+                    </div>
+
+                    <div id="transit-tabs" class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                    </div>
+
+                    <div id="transit-detail"
+                         class="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 景点卡片网格 -->
+        <div id="route-stops-grid" class="hidden">
+            <div class="mb-4">
+                <p class="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Attraction Cards</p>
+                <h2 class="font-display text-2xl font-extrabold text-slate-800">行程景点详情</h2>
+            </div>
+
+            <div id="stops-container"
+                 class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://webapi.amap.com/maps?v=2.0&key={{ AMAP_WEB_KEY }}"></script>
+<script>
+(function() {
+    var form = document.getElementById('planner-form');
+    var resultPanel = document.getElementById('planner-result');
+    var stepsDiv = document.getElementById('planner-steps');
+    var finalDiv = document.getElementById('planner-final');
+    var stopsGrid = document.getElementById('route-stops-grid');
+    var stopsContainer = document.getElementById('stops-container');
+    var stopsTable = document.getElementById('route-stops-table');
+    var stopsTableContainer = document.getElementById('stops-table-container');
+    var transitSection = document.getElementById('transit-plans-section');
+    var transitTabs = document.getElementById('transit-tabs');
+    var transitDetail = document.getElementById('transit-detail');
+
+    var currentTransitPlans = [];
+    var currentOriginCoords = '';
+    var currentCity = '';
+    var finalPlanText = '';
+
+    var llmTables = { overview: [], daily: [], transit: [], budget: [] };
+    var llmStopsData = [];
+
+    // ========== 简易 Markdown → HTML 渲染（支持表格、加粗、标题、列表） ==========
+    function renderMarkdown(md) {
+        if (!md) return '';
+        var html = md;
+        // 表格：| col | col |\n|---|---|\n| val | val |
+        html = html.replace(/(\|.+\|)\n(\|[-:\s|]+\|)\n((?:\|.+\|\n?)+)/g, function(match, header, separator, body) {
+            var headers = header.split('|').filter(function(c){ return c.trim(); }).map(function(c){
+                return '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 bg-slate-100">' + c.trim() + '</th>';
+            }).join('');
+            var rows = body.trim().split('\n').map(function(row) {
+                var cells = row.split('|').filter(function(c){ return c.trim(); }).map(function(c){
+                    var cell = c.trim();
+                    cell = cell.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-800">$1</strong>');
+                    return '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-600">' + cell + '</td>';
+                }).join('');
+                return '<tr class="hover:bg-brand-50 transition-colors">' + cells + '</tr>';
+            }).join('');
+            return '<div class="overflow-x-auto mb-4"><table class="w-full text-sm border-collapse rounded-xl overflow-hidden border-2 border-slate-200"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        });
+        // 标题
+        html = html.replace(/^### (.+)$/gm, '<h3 class="font-display text-lg font-extrabold text-slate-800 mt-4 mb-2">$1</h3>');
+        html = html.replace(/^## (.+)$/gm, '<h2 class="font-display text-xl font-extrabold text-slate-800 mt-6 mb-3 flex items-center gap-2">$1</h2>');
+        html = html.replace(/^# (.+)$/gm, '<h1 class="font-display text-2xl font-black text-slate-800 mt-6 mb-3">$1</h1>');
+        // 加粗
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-800 font-bold">$1</strong>');
+        // 无序列表
+        html = html.replace(/^- (.+)$/gm, '<li class="text-slate-600 text-sm ml-4 mb-1">$1</li>');
+        // 段落换行
+        html = html.replace(/\n\n/g, '</p><p class="text-slate-600 text-sm leading-relaxed mb-2">');
+        html = html.replace(/\n/g, '<br>');
+        return html;
+    }
+
+    // ========== 定位功能 ==========
+    var btnLocate = document.getElementById('btn-locate-me');
+    var originInput = document.getElementById('planner-origin');
+    var originCoordsInput = document.getElementById('planner-origin-coords');
+    var originStatus = document.getElementById('origin-status');
+
+    btnLocate.addEventListener('click', function() {
+        originStatus.textContent = '正在获取位置...';
+        originStatus.className = 'text-xs text-teal-600 mt-1';
+
+        if (!window.AMap) {
+            originStatus.textContent = '地图组件未加载，请手动输入地址';
+            originStatus.className = 'text-xs text-red-500 mt-1';
+            return;
+        }
+
+        AMap.plugin('AMap.Geolocation', function() {
+            var geo = new AMap.Geolocation({
+                enableHighAccuracy: true,
+                timeout: 10000,
+            });
+            geo.getCurrentPosition(function(status, result) {
+                if (status === 'complete') {
+                    var lng = result.position.lng;
+                    var lat = result.position.lat;
+                    var coords = lng + ',' + lat;
+                    originCoordsInput.value = coords;
+                    currentOriginCoords = coords;
+
+                    // 逆地理编码获取地址
+                    AMap.plugin('AMap.Geocoder', function() {
+                        var geocoder = new AMap.Geocoder();
+                        geocoder.getAddress([lng, lat], function(geoStatus, geoResult) {
+                            if (geoStatus === 'complete' && geoResult.regeocode) {
+                                originInput.value = geoResult.regeocode.formattedAddress;
+                                originStatus.textContent = '✅ 已定位：' + geoResult.regeocode.formattedAddress;
+                            } else {
+                                originInput.value = coords;
+                                originStatus.textContent = '✅ 已定位（坐标）：' + coords;
+                            }
+                            originStatus.className = 'text-xs text-emerald-600 mt-1';
+                        });
+                    });
+                } else {
+                    // 定位失败，尝试 IP 定位
+                    originStatus.textContent = '精确定位失败，尝试 IP 定位...';
+                    originStatus.className = 'text-xs text-amber-600 mt-1';
+                    tryIpLocation();
+                }
+            });
+        });
+    });
+
+    function tryIpLocation() {
+        fetch('{% url "planner:api_geocode" %}?address=' + encodeURIComponent(''))
+            .then(function() {
+                // IP定位降级：让用户手动输入
+                originStatus.textContent = '定位失败，请手动输入出发地址';
+                originStatus.className = 'text-xs text-amber-600 mt-1';
+            })
+            .catch(function() {
+                originStatus.textContent = '定位失败，请手动输入出发地址';
+                originStatus.className = 'text-xs text-red-500 mt-1';
+            });
+    }
+
+    // 出发地输入框变化时，尝试地理编码
+    var geocodeTimer = null;
+    originInput.addEventListener('input', function() {
+        clearTimeout(geocodeTimer);
+        var val = originInput.value.trim();
+        if (!val) {
+            originCoordsInput.value = '';
+            currentOriginCoords = '';
+            originStatus.textContent = '';
+            return;
+        }
+        originStatus.textContent = '输入地址后自动解析坐标...';
+        originStatus.className = 'text-xs text-slate-400 mt-1';
+
+        geocodeTimer = setTimeout(function() {
+            var city = document.getElementById('planner-city').value.trim();
+            var params = 'address=' + encodeURIComponent(val);
+            if (city) params += '&city=' + encodeURIComponent(city);
+
+            fetch('{% url "planner:api_geocode" %}?' + params)
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    if (data.ok) {
+                        originCoordsInput.value = data.location;
+                        currentOriginCoords = data.location;
+                        originStatus.textContent = '✅ 坐标已解析：' + data.formatted_address;
+                        originStatus.className = 'text-xs text-emerald-600 mt-1';
+                    } else {
+                        originCoordsInput.value = '';
+                        currentOriginCoords = '';
+                        originStatus.textContent = '⚠️ 无法解析该地址，规划时将尝试自动解析';
+                        originStatus.className = 'text-xs text-amber-600 mt-1';
+                    }
+                })
+                .catch(function() {
+                    originCoordsInput.value = '';
+                    currentOriginCoords = '';
+                    originStatus.textContent = '';
+                });
+        }, 800);
+    });
+
+    // ========== 表单提交 ==========
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // 显示结果区域
+        resultPanel.classList.remove('hidden');
+
+        // 重置步骤区域
+        stepsDiv.innerHTML = '';
+
+        // 添加第一个运行中的步骤
+        addStepItem('running', '任务启动', '已收到规划条件，正在启动标准 LangGraph Agent。');
+
+        // 清空之前的结果
+        finalDiv.innerHTML = '';
+        finalPlanText = '';
+        stopsContainer.innerHTML = '';
+        stopsGrid.classList.add('hidden');
+        stopsTable.classList.add('hidden');
+        stopsTableContainer.innerHTML = '';
+        transitSection.classList.add('hidden');
+        transitTabs.innerHTML = '';
+        transitDetail.innerHTML = '';
+        currentTransitPlans = [];
+
+        var formData = new FormData(form);
+        var csrfToken = formData.get('csrfmiddlewaretoken');
+
+        // 如果有坐标但输入框为空，把坐标也传过去
+        if (!formData.get('origin_location') && currentOriginCoords) {
+            formData.set('origin_location', currentOriginCoords);
+        }
+
+        currentCity = formData.get('city');
+
+        fetch('{% url "planner:planner_submit" %}', {
+            method: 'POST',
+            headers: {
+                'Accept': 'text/event-stream',
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        }).then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) {
+                    throw new Error(err.error || '规划失败');
+                });
+            }
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+
+            function read() {
+                reader.read().then(function(result) {
+                    if (result.done) return;
+                    buffer += decoder.decode(result.value, {stream: true});
+                    var lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i].trim();
+                        if (line.startsWith('data:')) {
+                            var data = JSON.parse(line.substring(5));
+                            var eventName = '';
+                            if (i > 0 && lines[i-1].startsWith('event:')) {
+                                eventName = lines[i-1].substring(6).trim();
+                            }
+                            handleEvent(eventName, data);
+                        }
+                    }
+                    read();
+                });
+            }
+            read();
+        }).catch(function(err) {
+            addStepItem('failed', '错误', err.message);
+        });
+    });
+
+    function handleEvent(eventName, data) {
+        if (eventName === 'step') {
+            addStepItem(data.status || 'running', data.title, data.description);
+        } else if (eventName === 'final_delta') {
+            finalPlanText += data.content;
+            finalDiv.innerHTML = renderMarkdown(finalPlanText);
+            finalDiv.scrollTop = finalDiv.scrollHeight;
+
+            parseLLMTables(finalPlanText);
+        } else if (eventName === 'route_stops') {
+            llmStopsData = data.route_stops || [];
+            renderStopsFromLLM();
+            renderMap(data.route_stops);
+            fetchTransitPlans(data.route_stops);
+        } else if (eventName === 'done') {
+            addStepItem('success', '规划完成', '所有步骤执行完毕！');
+            parseLLMTables(finalPlanText);
+            renderStopsFromLLM();
+            renderTransitFromLLM();
+            if (data.map_stops) {
+                renderMap(data.map_stops);
+                if (!llmStopsData.length) {
+                    llmStopsData = data.map_stops || [];
+                    renderStopsFromLLM();
+                }
+                fetchTransitPlans(data.map_stops);
+            }
+        } else if (eventName === 'error') {
+            addStepItem('failed', '错误', data.message);
+        }
+    }
+
+    function parseLLMTables(text) {
+        if (!text) return;
+
+        var tableRegex = /(\|.+\|)\n(\|[-:\s|]+\|)\n((?:\|.+\|\n?)+)/g;
+        var match;
+        var inDailySection = false;
+        var inTransitSection = false;
+        var inBudgetSection = false;
+        var lines = text.split('\n');
+
+        llmTables = { overview: [], daily: [], transit: [], budget: [] };
+
+        while ((match = tableRegex.exec(text)) !== null) {
+            var headerLine = match[1];
+            var bodyLines = match[3].trim().split('\n');
+            var headers = headerLine.split('|').filter(function(c){ return c.trim(); }).map(function(c){ return c.trim(); });
+            var rows = bodyLines.map(function(row) {
+                return row.split('|').filter(function(c){ return c.trim(); }).map(function(c){ return c.trim(); });
+            });
+
+            var tableData = { headers: headers, rows: rows };
+
+            var headerStr = headers.join('');
+            var prevIdx = text.lastIndexOf('\n', match.index);
+
+            if (headerStr.indexOf('天数') !== -1 && headerStr.indexOf('主要景点') !== -1) {
+                llmTables.overview.push(tableData);
+            } else if (headerStr.indexOf('时间') !== -1 && (headerStr.indexOf('活动') !== -1 || headerStr.indexOf('地点') !== -1)) {
+                llmTables.daily.push(tableData);
+            } else if (headerStr.indexOf('方案') !== -1 && (headerStr.indexOf('耗时') !== -1 || headerStr.indexOf('费用') !== -1)) {
+                llmTables.transit.push(tableData);
+            } else if (headerStr.indexOf('类别') !== -1 || headerStr.indexOf('明细') !== -1) {
+                llmTables.budget.push(tableData);
+            }
+        }
+    }
+
+    function renderStopsFromLLM() {
+
+        stopsGrid.classList.remove('hidden');
+        stopsContainer.innerHTML = '';
+
+        var allStops = [];
+
+        if (llmTables.daily.length > 0) {
+            llmTables.daily.forEach(function(dayTable) {
+                dayTable.rows.forEach(function(row) {
+                    var timeIdx = dayTable.headers.indexOf('时间');
+                    var activityIdx = dayTable.headers.indexOf('活动');
+                    var placeIdx = dayTable.headers.indexOf('地点');
+                    var trafficIdx = dayTable.headers.indexOf('交通');
+                    var costIdx = dayTable.headers.indexOf('费用');
+                    var noteIdx = dayTable.headers.indexOf('备注');
+
+                    allStops.push({
+                        time: timeIdx >= 0 ? row[timeIdx] : '',
+                        activity: activityIdx >= 0 ? row[activityIdx] : '',
+                        place: placeIdx >= 0 ? row[placeIdx] : '',
+                        traffic: trafficIdx >= 0 ? row[trafficIdx] : '',
+                        cost: costIdx >= 0 ? row[costIdx] : '',
+                        note: noteIdx >= 0 ? row[noteIdx] : ''
+                    });
+                });
+            });
+        }
+
+        if (allStops.length === 0 && llmStopsData.length > 0) {
+            llmStopsData.forEach(function(stop, idx) {
+                allStops.push({
+                    time: '',
+                    activity: stop.name,
+                    place: stop.city_name || '',
+                    traffic: '',
+                    cost: stop.actual_price ? ('¥' + stop.actual_price) : '',
+                    note: stop.intro || ''
+                });
+            });
+        }
+
+        allStops.forEach(function(stop, idx) {
+            var cardHtml = `
+                <div class="bg-white border-[3px] border-slate-800 rounded-2xl p-5
+                            shadow-cartoon hover:-translate-y-1 hover:shadow-cartoon-lg
+                            transition-all duration-200 group">
+                    <div class="flex items-center gap-2 mb-3 flex-wrap">
+                        ${stop.time ? '<span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-300">' + stop.time + '</span>' : ''}
+                        ${stop.traffic ? '<span class="px-2 py-1 bg-teal-100 text-teal-700 text-xs font-bold rounded-lg border border-teal-300">' + stop.traffic + '</span>' : ''}
+                        ${stop.cost ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-lg border border-amber-300">' + stop.cost + '</span>' : ''}
+                    </div>
+                    <h3 class="font-display text-lg font-extrabold text-slate-800 mb-2 line-clamp-1 leading-tight">
+                        ${stop.activity || stop.place || '景点 ' + (idx + 1)}
+                    </h3>
+                    ${stop.place ? '<p class="text-slate-500 text-sm mb-1">📍 ' + stop.place + '</p>' : ''}
+                    ${stop.note ? '<p class="text-slate-600 text-xs leading-relaxed line-clamp-3">' + stop.note + '</p>' : ''}
+                </div>
+            `;
+            stopsContainer.insertAdjacentHTML('beforeend', cardHtml);
+        });
+
+        stopsTable.classList.remove('hidden');
+
+        if (llmTables.daily.length > 0) {
+            renderItineraryFromLLM();
+        } else if (llmStopsData.length > 0) {
+            renderSimpleItinerary();
+        }
+    }
+
+    function renderItineraryFromLLM() {
+        var tableHtml = '';
+
+        llmTables.daily.forEach(function(dayTable, dayIdx) {
+            tableHtml += '<div class="mb-6 last:mb-0">';
+            tableHtml += '<h3 class="font-display text-lg font-extrabold text-slate-800 mb-3 flex items-center gap-2">';
+            tableHtml += '<span class="inline-flex items-center justify-center w-8 h-8 bg-amber-400 text-slate-800 rounded-lg border-2 border-slate-800 text-sm font-black shadow-sm">' + (dayIdx + 1) + '</span>';
+            tableHtml += '第 ' + (dayIdx + 1) + ' 天</h3>';
+            tableHtml += '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">';
+            tableHtml += '<thead><tr class="bg-slate-100">';
+
+            dayTable.headers.forEach(function(h) {
+                tableHtml += '<th class="px-3 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 whitespace-nowrap">' + h + '</th>';
+            });
+            tableHtml += '</tr></thead><tbody>';
+
+            dayTable.rows.forEach(function(row, idx) {
+                var bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                tableHtml += '<tr class="' + bgClass + ' hover:bg-brand-50 transition-colors">';
+                row.forEach(function(cell) {
+                    cell = cell.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                    tableHtml += '<td class="px-3 py-3 border-b-2 border-slate-200 text-slate-600">' + cell + '</td>';
+                });
+                tableHtml += '</tr>';
+            });
+
+            tableHtml += '</tbody></table></div></div>';
+        });
+
+        stopsTableContainer.innerHTML = tableHtml;
+    }
+
+    function renderSimpleItinerary() {
+        var grouped = {};
+        llmStopsData.forEach(function(stop, idx) {
+            var day = stop.day_index || Math.floor(idx / 4) + 1;
+            if (!grouped[day]) grouped[day] = [];
+            grouped[day].push(stop);
+        });
+
+        var tableHtml = '';
+        Object.keys(grouped).sort(function(a,b){ return a - b; }).forEach(function(day) {
+            var dayStops = grouped[day];
+            tableHtml += '<div class="mb-6 last:mb-0">';
+            tableHtml += '<h3 class="font-display text-lg font-extrabold text-slate-800 mb-3 flex items-center gap-2">';
+            tableHtml += '<span class="inline-flex items-center justify-center w-8 h-8 bg-amber-400 text-slate-800 rounded-lg border-2 border-slate-800 text-sm font-black shadow-sm">' + day + '</span>';
+            tableHtml += '第 ' + day + ' 天</h3>';
+            tableHtml += '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">';
+            tableHtml += '<thead><tr class="bg-slate-100">';
+            tableHtml += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 w-12">序号</th>';
+            tableHtml += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">景点名称</th>';
+            tableHtml += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">城市</th>';
+            tableHtml += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">简介</th>';
+            tableHtml += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800 hidden md:table-cell">坐标</th>';
+            tableHtml += '</tr></thead><tbody>';
+
+            dayStops.forEach(function(stop, idx) {
+                var bgClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                var intro = (stop.intro || stop.description || stop.tags || '—');
+
+                tableHtml += '<tr class="' + bgClass + ' hover:bg-brand-50 transition-colors">';
+                tableHtml += '<td class="px-4 py-3 border-b-2 border-slate-200"><span class="inline-flex items-center justify-center w-7 h-7 bg-amber-400 text-slate-800 rounded-lg border-2 border-slate-800 text-xs font-black shadow-sm">' + (idx + 1) + '</span></td>';
+                tableHtml += '<td class="px-4 py-3 border-b-2 border-slate-200 font-bold text-slate-800">' + stop.name + '</td>';
+                tableHtml += '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-600">' + (stop.city_name || '') + '</td>';
+                tableHtml += '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-500 text-xs max-w-xs">' + intro + '</td>';
+                tableHtml += '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-400 text-xs font-mono hidden md:table-cell">' + stop.longitude + ', ' + stop.latitude + '</td>';
+                tableHtml += '</tr>';
+            });
+
+            tableHtml += '</tbody></table></div></div>';
+        });
+
+        stopsTableContainer.innerHTML = tableHtml;
+    }
+
+    function renderTransitFromLLM() {
+        if (llmTables.transit.length === 0) return;
+
+        transitSection.classList.remove('hidden');
+        transitTabs.innerHTML = '';
+        transitDetail = document.getElementById('transit-detail') || transitDetail;
+
+        llmTables.transit.forEach(function(transitTable, tIdx) {
+            transitTable.rows.forEach(function(row, rIdx) {
+                var planName = row[0] || ('方案' + (rIdx + 1));
+                var isActive = (tIdx === 0 && rIdx === 0);
+
+                var tabClass = isActive
+                    ? 'px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-bold border-[2px] border-slate-800 shadow-cartoon whitespace-nowrap'
+                    : 'px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold border-2 border-slate-200 hover:bg-slate-200 whitespace-nowrap transition-all duration-200';
+
+                var tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = tabClass;
+                tab.textContent = planName;
+                tab.addEventListener('click', function() {
+                    renderLLMTransitDetail(transitTable, row, rIdx);
+                    transitTabs.querySelectorAll('button').forEach(function(b, i) {
+                        b.className = (i === (tIdx * transitTable.rows.length + rIdx))
+                            ? 'px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-bold border-[2px] border-slate-800 shadow-cartoon whitespace-nowrap'
+                            : 'px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold border-2 border-slate-200 hover:bg-slate-200 whitespace-nowrap transition-all duration-200';
+                    });
+                });
+                transitTabs.appendChild(tab);
+            });
+
+            if (tIdx === 0 && transitTable.rows.length > 0) {
+                renderLLMTransitDetail(transitTable, transitTable.rows[0], 0);
+            }
+        });
+    }
+
+    function renderLLMTransitDetail(transitTable, row, idx) {
+        var html = '<div class="space-y-3">';
+        html += '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse">';
+        html += '<thead><tr class="bg-slate-100">';
+
+        transitTable.headers.forEach(function(h) {
+            html += '<th class="px-4 py-3 text-left font-bold text-slate-700 border-b-[3px] border-slate-800">' + h + '</th>';
+        });
+        html += '</tr></thead>';
+
+        html += '<tbody><tr class="bg-white hover:bg-brand-50 transition-colors">';
+        row.forEach(function(cell) {
+            cell = cell.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-800">$1</strong>');
+            html += '<td class="px-4 py-3 border-b-2 border-slate-200 text-slate-600">' + cell + '</td>';
+        });
+        html += '</tr></tbody></table></div>';
+
+        if (llmTables.budget.length > 0) {
+            html += '<div class="mt-4 pt-4 border-t-2 border-dashed border-slate-200">';
+            html += '<h4 class="font-bold text-sm text-slate-700 mb-2">💰 费用预算</h4>';
+            html += '<div class="overflow-x-auto"><table class="w-full text-xs border-collapse">';
+            html += '<thead><tr class="bg-amber-50">';
+            llmTables.budget[0].headers.forEach(function(h) {
+                html += '<th class="px-3 py-2 text-left font-bold text-slate-700 border-b-2 border-amber-200">' + h + '</th>';
+            });
+            html += '</tr></thead><tbody>';
+            llmTables.budget[0].rows.forEach(function(bRow, bIdx) {
+                var isTotal = bRow.some(function(c){ return c.indexOf('**合计**') !== -1 || c.indexOf('合计') !== -1; });
+                html += '<tr class="' + (isTotal ? 'bg-amber-100 font-bold' : (bIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50')) + '">';
+                bRow.forEach(function(cell) {
+                    cell = cell.replace(/\*\*(.+?)\*\*/g, '$1');
+                    html += '<td class="px-3 py-2 border-b border-slate-200 text-slate-600">' + cell + '</td>';
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div></div>';
+        }
+
+        html += '</div>';
+        transitDetail.innerHTML = html;
+    }
+
+    function addStepItem(status, title, description) {
+        var stepNum = stepsDiv.children.length + 1;
+        var statusColors = {
+            'running': 'border-blue-300 bg-blue-50',
+            'success': 'border-emerald-300 bg-emerald-50',
+            'failed': 'border-red-300 bg-red-50',
+            'warning': 'border-amber-300 bg-amber-50'
+        };
+        var badgeColors = {
+            'running': 'bg-blue-500 text-white',
+            'success': 'bg-emerald-500 text-white',
+            'failed': 'bg-red-500 text-white',
+            'warning': 'bg-amber-500 text-white'
+        };
+
+        var stepHtml = `
+            <div class="p-4 rounded-xl border-2 ${statusColors[status] || statusColors.running}
+                        transition-all duration-300 animate-fadeIn">
+                <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-8 h-8 rounded-lg ${badgeColors[status] || badgeColors.running}
+                                 flex items-center justify-center text-sm font-extrabold
+                                 border-2 border-slate-800 shadow-sm">
+                        ${stepNum}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-slate-800 text-sm mb-1">${title}</h4>
+                        <p class="text-slate-600 text-xs leading-relaxed">${description}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        stepsDiv.insertAdjacentHTML('beforeend', stepHtml);
+        stepsDiv.scrollTop = stepsDiv.scrollHeight;
+    }
+
+    // ========== 获取多种交通方案 ==========
+    function fetchTransitPlans(stops) {
+        if (!stops || !stops.length) return;
+
+        var origin = currentOriginCoords || originInput.value.trim();
+        if (!origin) return;
+
+        var firstStop = stops[0];
+        var destination = firstStop.longitude + ',' + firstStop.latitude;
+        var city = currentCity || firstStop.city_name || '';
+
+        var params = 'origin=' + encodeURIComponent(origin) +
+                     '&destination=' + encodeURIComponent(destination) +
+                     '&city=' + encodeURIComponent(city);
+
+        transitSection.classList.remove('hidden');
+        transitTabs.innerHTML = '<p class="text-sm text-slate-400">正在查询交通方案...</p>';
+        transitDetail.innerHTML = '';
+
+        fetch('{% url "planner:api_transit_routes" %}?' + params)
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.ok && data.routes && data.routes.length) {
+                    currentTransitPlans = data.routes;
+                    renderTransitTabs(data.routes);
+                    if (data.routes.length > 0) {
+                        renderTransitDetail(data.routes[0], 0);
+                    }
+                } else {
+                    transitTabs.innerHTML = '<p class="text-sm text-slate-400">暂无公交/地铁路线数据</p>';
+                }
+            })
+            .catch(function() {
+                transitTabs.innerHTML = '<p class="text-sm text-red-400">交通方案查询失败</p>';
+            });
+    }
+
+    function renderTransitTabs(plans) {
+        transitTabs.innerHTML = '';
+        plans.forEach(function(plan, idx) {
+            var label = plan.strategy_label || ('方案' + (idx + 1));
+            var duration = plan.duration_s ? Math.round(parseInt(plan.duration_s) / 60) + '分钟' : '';
+            var cost = plan.cost ? '¥' + (parseInt(plan.cost) / 100).toFixed(0) : '';
+
+            var isActive = idx === 0;
+            var tabClass = isActive
+                ? 'px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-bold border-[2px] border-slate-800 shadow-cartoon whitespace-nowrap'
+                : 'px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold border-2 border-slate-200 hover:bg-slate-200 whitespace-nowrap transition-all duration-200';
+
+            var tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = tabClass;
+            tab.textContent = label + (duration ? ' ' + duration : '') + (cost ? ' ' + cost : '');
+            tab.addEventListener('click', function() {
+                renderTransitDetail(plan, idx);
+                transitTabs.querySelectorAll('button').forEach(function(b, i) {
+                    if (i === idx) {
+                        b.className = 'px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-bold border-[2px] border-slate-800 shadow-cartoon whitespace-nowrap';
+                    } else {
+                        b.className = 'px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold border-2 border-slate-200 hover:bg-slate-200 whitespace-nowrap transition-all duration-200';
+                    }
+                });
+            });
+            transitTabs.appendChild(tab);
+        });
+    }
+
+    function renderTransitDetail(plan, idx) {
+        var html = '<div class="space-y-3">';
+        html += '<div class="flex items-center gap-3 mb-3">';
+        html += '<span class="px-3 py-1 bg-teal-100 text-teal-700 rounded-lg text-xs font-bold">' + (plan.strategy_label || '方案' + (idx + 1)) + '</span>';
+        if (plan.duration_s) html += '<span class="text-sm text-slate-600">⏱ ' + Math.round(parseInt(plan.duration_s) / 60) + ' 分钟</span>';
+        if (plan.cost) html += '<span class="text-sm text-slate-600">💰 ¥' + (parseInt(plan.cost) / 100).toFixed(0) + '</span>';
+        if (plan.distance) html += '<span class="text-sm text-slate-600">📏 ' + (parseInt(plan.distance) / 1000).toFixed(1) + ' km</span>';
+        html += '</div>';
+
+        var segments = plan.segments || [];
+        segments.forEach(function(seg, segIdx) {
+            var isMetro = seg.is_metro;
+            var icon = isMetro ? '🚇' : (seg.line_name === '步行' ? '🚶' : '🚌');
+            var bgColor = isMetro ? 'bg-blue-50 border-blue-200' : (seg.line_name === '步行' ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-200');
+            var lineColor = isMetro ? 'text-blue-700' : (seg.line_name === '步行' ? 'text-slate-600' : 'text-amber-700');
+
+            html += '<div class="p-3 rounded-xl border-2 ' + bgColor + '">';
+            html += '<div class="flex items-center gap-2 mb-1">';
+            html += '<span class="text-lg">' + icon + '</span>';
+            html += '<span class="font-bold text-sm ' + lineColor + '">' + (seg.line_name || '未知线路') + '</span>';
+            html += '</div>';
+
+            if (seg.from_stop && seg.to_stop) {
+                html += '<p class="text-xs text-slate-500 ml-7">' + seg.from_stop + ' → ' + seg.to_stop + '</p>';
+            }
+
+            var segDetails = [];
+            if (seg.distance_m) segDetails.push((parseInt(seg.distance_m) / 1000).toFixed(1) + 'km');
+            if (seg.duration_s) segDetails.push(Math.round(parseInt(seg.duration_s) / 60) + '分钟');
+            if (segDetails.length) {
+                html += '<p class="text-xs text-slate-400 ml-7 mt-1">' + segDetails.join(' · ') + '</p>';
+            }
+            html += '</div>';
+        });
+
+        html += '</div>';
+        transitDetail.innerHTML = html;
+    }
+
+    // ========== 地图渲染 ==========
+    function renderMap(stops) {
+        if (!stops || !stops.length || !window.AMap) return;
+
+        var mapDiv = document.getElementById('planner-map');
+        mapDiv.innerHTML = '';
+
+        var map = new AMap.Map(mapDiv, {
+            zoom: 11,
+            center: [stops[0].longitude, stops[0].latitude]
+        });
+
+        // 如果有出发地坐标，在地图上标注起点
+        if (currentOriginCoords) {
+            var parts = currentOriginCoords.split(',');
+            if (parts.length === 2) {
+                var originMarker = new AMap.Marker({
+                    position: [parseFloat(parts[0]), parseFloat(parts[1])],
+                    title: '出发地',
+                    icon: new AMap.Icon({
+                        size: new AMap.Size(25, 34),
+                        image: 'https://webapi.amap.com/theme/v1.3/markers/n/start.png',
+                    }),
+                });
+                map.add(originMarker);
+
+                // 画从出发地到第一个景点的虚线
+                var originPath = [
+                    [parseFloat(parts[0]), parseFloat(parts[1])],
+                    [stops[0].longitude, stops[0].latitude]
+                ];
+                var originPolyline = new AMap.Polyline({
+                    path: originPath,
+                    strokeColor: '#ef4444',
+                    strokeWeight: 2,
+                    strokeStyle: 'dashed',
+                    strokeDasharray: [10, 5],
+                });
+                map.add(originPolyline);
+            }
+        }
+
+        var path = [];
+        var currentInfoWindow = null;
+        var closeTimer = null;
+
+        function cancelCloseTimer() {
+            if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        }
+        function scheduleClose(iw) {
+            cancelCloseTimer();
+            closeTimer = setTimeout(function() {
+                if (currentInfoWindow === iw) { iw.close(); currentInfoWindow = null; }
+                closeTimer = null;
+            }, 300);
+        }
+
+        stops.forEach(function(stop, idx) {
+            var dayLabel = '第' + (stop.day_index || Math.floor(idx/4)+1) + '天';
+            var marker = new AMap.Marker({
+                position: [stop.longitude, stop.latitude],
+                title: dayLabel + '-' + stop.name,
+                label: {
+                    content: '<div style="background:#f59e0b;color:#1e293b;font-weight:bold;' +
+                             'padding:4px 8px;border-radius:6px;border:2px solid #1e293b;' +
+                             'font-size:12px;">' + (idx + 1) + '</div>',
+                    offset: new AMap.Pixel(-15, -15)
+                }
+            });
+
+            var imgUrl = stop.image || stop.banner_url || '';
+            var scoreStr = stop.score ? ('⭐ ' + stop.score) : '';
+            var cityStr = stop.city_name || '';
+            var introStr = (stop.intro || stop.description || '');
+            if (introStr.length > 60) introStr = introStr.substring(0, 60) + '…';
+
+            var infoContent = '<div class="stop-info-card" style="min-width:220px;max-width:300px;padding:0;font-family:system-ui,sans-serif;">';
+            if (imgUrl) {
+                infoContent += '<div style="width:100%;height:140px;overflow:hidden;border-radius:8px 8px 0 0;background:#f1f5f9;">';
+                infoContent += '<img src="' + imgUrl + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\';this.parentElement.style.height=\'0\';">';
+                infoContent += '</div>';
+            }
+            infoContent += '<div style="padding:10px 12px;">';
+            infoContent += '<div style="font-size:14px;font-weight:800;color:#1e293b;margin-bottom:4px;">' + stop.name + '</div>';
+            infoContent += '<div style="font-size:12px;color:#64748b;">' + dayLabel + (cityStr ? ' · ' + cityStr : '') + (scoreStr ? ' · ' + scoreStr : '') + '</div>';
+            if (introStr) {
+                infoContent += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.4;">' + introStr + '</div>';
+            }
+            infoContent += '</div></div>';
+
+            var infoWindow = new AMap.InfoWindow({
+                content: infoContent,
+                offset: new AMap.Pixel(0, -30),
+                closeWhenClickMap: true
+            });
+
+            marker.on('mouseover', function() {
+                cancelCloseTimer();
+                if (currentInfoWindow && currentInfoWindow !== infoWindow) {
+                    currentInfoWindow.close();
+                }
+                infoWindow.open(map, marker.getPosition());
+                currentInfoWindow = infoWindow;
+            });
+            marker.on('mouseout', function() {
+                scheduleClose(infoWindow);
+            });
+            marker.on('click', function() {
+                cancelCloseTimer();
+                if (currentInfoWindow && currentInfoWindow !== infoWindow) {
+                    currentInfoWindow.close();
+                }
+                infoWindow.open(map, marker.getPosition());
+                currentInfoWindow = infoWindow;
+            });
+
+            map.add(marker);
+            path.push([stop.longitude, stop.latitude]);
+        });
+
+        map.on('mouseover', function(e) {
+            var target = e.target;
+            if (target && target.className && target.className.indexOf && target.className.indexOf('stop-info-card') !== -1) {
+                cancelCloseTimer();
+            }
+        });
+
+        if (path.length > 1) {
+            var polyline = new AMap.Polyline({
+                path: path,
+                strokeColor: '#0f766e',
+                strokeWeight: 3,
+                strokeStyle: 'solid'
+            });
+            map.add(polyline);
+        }
+
+        map.setFitView();
+    }
+})();
+</script>
+
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* 自定义滚动条 */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* 文本截断 */
+.line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
+
+<script>
+(function() {
+    function getCsrfToken() {
+        var el = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (el) return el.value;
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-delete-recent-plan');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var planId = btn.dataset.planId;
+        if (!planId) return;
+        if (!confirm('确认删除这条规划记录？')) return;
+
+        btn.disabled = true;
+        fetch('/planner/result/' + planId + '/delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(function(resp) {
+            if (resp.ok) {
+                var row = btn.closest('.flex.items-center.gap-2');
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(20px)';
+                    setTimeout(function() { row.remove(); }, 300);
+                }
+            } else {
+                alert('删除失败');
+                btn.disabled = false;
+            }
+        }).catch(function() {
+            alert('网络错误');
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+{% endblock %}

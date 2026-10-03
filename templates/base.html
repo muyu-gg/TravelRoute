@@ -1,0 +1,96 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}旅游规划平台{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans SC', 'Inter', 'system-ui', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4',
+                            500: '#14b8a6', 600: '#0d9488', 700: '#0f766e',
+                            800: '#115e59', 900: '#134e4a',
+                        },
+                        cartoon: {
+                            border: '#1e293b', shadow: '#1e293b',
+                            btn: '#f59e0b', btnHover: '#d97706',
+                            brand: '#ccfbf1',
+                        },
+                    },
+                    boxShadow: {
+                        'cartoon': '4px 4px 0 #1e293b',
+                        'cartoon-lg': '6px 6px 0 #1e293b',
+                        'cartoon-xl': '8px 8px 0 #1e293b',
+                    },
+                },
+            },
+        }
+    </script>
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}?v=20260929-tw">
+    <link rel="stylesheet" href="{% static 'css/pages.css' %}?v=20260929-tw">
+</head>
+<body>
+<main class="app-shell">
+    <div class="dashboard-wrapper">
+        {% block navbar %}
+
+            <nav class="topbar-cartoon">
+                <div class="brand-lockup-cartoon">
+                    <span class="brand-mark-cartoon">觅</span>
+                    <div>
+                        <strong>觅途行</strong>
+                        <span>MiTuXing</span>
+                    </div>
+                </div>
+
+                <ul class="nav-menu-cartoon">
+                    <li>
+                        <a href="{% url 'accounts:home' %}"
+                           class="menu-item-cartoon{% if request.resolver_match.app_name == 'accounts' and request.resolver_match.url_name == 'home' %} active{% endif %}">首页</a>
+                    </li>
+                    <li>
+                        <a href="{% url 'travel:attraction_list' %}"
+                           class="menu-item-cartoon{% if request.resolver_match.app_name == 'travel' %} active{% endif %}">景点</a>
+                    </li>
+                    <li>
+                        <a href="{% url 'guides:guide_list' %}"
+                           class="menu-item-cartoon{% if request.resolver_match.app_name == 'guides' %} active{% endif %}">攻略</a>
+                    </li>
+                    <li>
+                        <a href="{% url 'planner:planner' %}"
+                           class="menu-item-cartoon{% if request.resolver_match.app_name == 'planner' %} active{% endif %}">AI规划</a>
+                    </li>
+                </ul>
+
+                <div class="nav-user-cartoon">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'accounts:profile' %}" class="menu-item-cartoon">{{ user.username }}</a>
+                    <a href="{% url 'accounts:logout' %}" class="menu-item-cartoon">退出</a>
+                    {% else %}
+                    <a href="{% url 'accounts:login' %}" class="menu-item-cartoon">登录</a>
+                    {% endif %}
+                </div>
+
+
+            </nav>
+        {% endblock %}
+
+        {% block content %}{% endblock %}
+    </div>
+</main>
+{% block extra_js %}{% endblock %}
+</body>
+</html>
