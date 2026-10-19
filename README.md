@@ -78,8 +78,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://gitee.com/love-dry-rice/travel-assistant.git
-cd travel-assistant
+git clone https://github.com/muyu-gg/TravelRoute.git
+cd TravelRoute
 ```
 
 ### 2. 配置环境变量

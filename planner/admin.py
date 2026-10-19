@@ -1,4 +1,6 @@
-﻿"""功能说明：AI 路线规划后台管理配置。"""
+﻿
+
+"""功能说明：AI 路线规划后台管理配置。"""
 from django.contrib import admin
 
 from planner.models import RoutePlan, RoutePlanStop
